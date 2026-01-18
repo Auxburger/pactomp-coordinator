@@ -1,6 +1,8 @@
 use crate::protocol::Request;
+use crate::scheduler::fair_share::FairShareStrategy;
 use crate::state::RmState;
 use std::sync::Arc;
+use std::time::Duration;
 
 pub trait SchedulingStrategy: Send + Sync {
     fn name(&self) -> &'static str;
@@ -10,12 +12,14 @@ pub trait SchedulingStrategy: Send + Sync {
 /// Context in GoF terms
 pub struct Scheduler {
     capacity: u16,
+    active_window: Duration,
     strategy: Arc<dyn SchedulingStrategy>,
 }
 
 impl Scheduler {
-    pub fn new(capacity: u16, strategy: Arc<dyn SchedulingStrategy>) -> Self {
-        Self { capacity, strategy }
+    pub fn new(capacity: u16, active_window: Duration) -> Self {
+        let strategy = Arc::new(FairShareStrategy::new(active_window));
+        Self { capacity, active_window, strategy }
     }
 
     pub fn set_strategy(&mut self, strategy: Arc<dyn SchedulingStrategy>) {
@@ -32,6 +36,10 @@ impl Scheduler {
 
     pub fn capacity(&self) -> u16 {
         self.capacity
+    }
+
+    pub fn active_window(&self) -> Duration {
+        self.active_window
     }
 }
 

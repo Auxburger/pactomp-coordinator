@@ -21,11 +21,8 @@ fn main() -> io::Result<()> {
 
     let state = state::SharedState::new(state::RmState::new());
 
-    // Concrete strategy
-    let fair = Arc::new(scheduler::fair_share::FairShareStrategy::new(Duration::from_secs(5)));
-
     // Context
-    let scheduler = Arc::new(Mutex::new(scheduler::Scheduler::new(capacity, fair)));
+    let scheduler = Arc::new(Mutex::new(scheduler::Scheduler::new(capacity, Duration::from_secs(5))));
 
     server::run_unix_socket_server(sock_path, state, scheduler)
 }
