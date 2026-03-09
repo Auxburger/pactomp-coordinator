@@ -15,9 +15,14 @@ fn main() -> io::Result<()> {
         fs::remove_file(sock_path)?;
     }
 
-    let capacity: u16 = std::thread::available_parallelism()
-        .map(|n| n.get() as u16)
-        .unwrap_or(1);
+    let capacity: u16 = std::env::var("DRM_CAPACITY")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map(|n| n.get() as u16)
+                .unwrap_or(1)
+        });
 
     let state = state::SharedState::new(state::RmState::new());
 

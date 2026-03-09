@@ -33,9 +33,8 @@ impl SchedulingStrategy for FairShareStrategy {
         let mut granted = base + share;
         granted = granted.max(1);
 
-        // respect per-request max/hint
+        // cap at per-request max; do NOT boost back up to hint (would defeat fair-share)
         granted = granted.min(req.max_threads.max(1));
-        granted = granted.max(req.hint_threads.min(req.max_threads.max(1)));
 
         granted
     }
