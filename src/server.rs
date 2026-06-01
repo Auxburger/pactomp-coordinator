@@ -68,17 +68,22 @@ fn handle_client(
             req.pid, req.max_threads, req.hint_threads
         );
 
-        let granted = state.with_lock(|st| {
+        let (granted, base_cpu, num_cpus) = state.with_lock(|st| {
             st.upsert_client(&req);
             st.cleanup_stale(Duration::from_secs(5));
-            scheduler.lock().unwrap().decide(st, &req)
+            let granted = scheduler.lock().unwrap().decide(st, &req);
+            let (base_cpu, num_cpus) = st.get_or_assign_cpus(req.pid, granted);
+            (granted, base_cpu, num_cpus)
         });
 
         let ttl_ms: u16 = 10;
         let epoch: u32 = 1;
-        let rep = build_reply(granted, ttl_ms, epoch);
+        let rep = build_reply(granted, ttl_ms, epoch, base_cpu, num_cpus);
         stream.write_all(&rep)?;
 
-        println!("Granted {granted} threads to pid {}", req.pid);
+        println!(
+            "Granted {granted} threads to pid {} (CPUs {}+{})",
+            req.pid, base_cpu, num_cpus
+        );
     }
 }

@@ -24,7 +24,26 @@ fn main() -> io::Result<()> {
                 .unwrap_or(1)
         });
 
-    let state = state::SharedState::new(state::RmState::new());
+    // Optional: ordered list of CPUs the DRM may assign to clients.
+    // Format: comma-separated integers or ranges, e.g. "0,1,2-7,10-15".
+    // When unset, CPU pinning is disabled (base_cpu=0, num_cpus=0 in reply).
+    let cpu_pool = std::env::var("DRM_CPU_LIST")
+        .ok()
+        .map(|s| protocol::parse_cpu_list(&s))
+        .unwrap_or_default();
+
+    if cpu_pool.is_empty() {
+        println!("DRM_CPU_LIST not set — CPU pinning disabled");
+    } else {
+        println!(
+            "CPU pool ({} cores): {}–{}",
+            cpu_pool.len(),
+            cpu_pool[0],
+            cpu_pool[cpu_pool.len() - 1]
+        );
+    }
+
+    let state = state::SharedState::new(state::RmState::new(cpu_pool));
 
     // Context
     let scheduler = Arc::new(Mutex::new(scheduler::Scheduler::new(capacity, Duration::from_secs(5))));
