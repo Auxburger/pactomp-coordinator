@@ -49,13 +49,19 @@ fn handle_client(
     scheduler: Arc<Mutex<Scheduler>>,
 ) -> io::Result<()> {
     println!("Handling client");
+    let mut client_pid: Option<u32> = None;
 
     loop {
         let mut buf = [0u8; 16];
 
         if let Err(e) = stream.read_exact(&mut buf) {
             if e.kind() == io::ErrorKind::UnexpectedEof {
-                println!("Client closed connection");
+                if let Some(pid) = client_pid {
+                    state.with_lock(|st| { st.clients.remove(&pid); });
+                    println!("Client pid {pid} disconnected — removed from state");
+                } else {
+                    println!("Client closed connection before first request");
+                }
                 return Ok(());
             }
             eprintln!("Read error: {e}");
@@ -63,6 +69,7 @@ fn handle_client(
         }
 
         let req = parse_request(buf);
+        client_pid = Some(req.pid);
         println!(
             "Request from pid {}: max_threads={}, hint_threads={}",
             req.pid, req.max_threads, req.hint_threads
