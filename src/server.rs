@@ -6,7 +6,14 @@ use std::io::{self, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
 
 pub fn run_unix_socket_server(
     sock_path: &str,
@@ -58,7 +65,7 @@ fn handle_client(
             if e.kind() == io::ErrorKind::UnexpectedEof {
                 if let Some(pid) = client_pid {
                     state.with_lock(|st| { st.clients.remove(&pid); });
-                    println!("Client pid {pid} disconnected — removed from state");
+                    println!("[{}] Client pid {pid} disconnected — removed from state", now_ms());
                 } else {
                     println!("Client closed connection before first request");
                 }
@@ -89,8 +96,8 @@ fn handle_client(
         stream.write_all(&rep)?;
 
         println!(
-            "Granted {granted} threads to pid {} (CPUs {}+{})",
-            req.pid, base_cpu, num_cpus
+            "[{}] Granted {granted} threads to pid {} (CPUs {}+{})",
+            now_ms(), req.pid, base_cpu, num_cpus
         );
     }
 }
