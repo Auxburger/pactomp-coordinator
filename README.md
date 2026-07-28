@@ -171,7 +171,25 @@ only where the client can call `sched_setaffinity`.
 
 ## License
 
-Licensed under the Apache License, Version 2.0 — see [LICENSE](LICENSE).
+Copyright 2026 Darius Augsburger.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this software except in compliance with the License. A copy of the full
+license text is in [LICENSE](LICENSE), and you may also obtain it at
+<http://www.apache.org/licenses/LICENSE-2.0>.
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an **"AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND**, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+
+In short, and with the License text itself being authoritative: you may use,
+modify, and redistribute this code, including commercially, provided you
+retain the copyright and license notices, state significant changes you made,
+and include the [NOTICE](NOTICE) file in redistributions. The License also
+grants you a patent license from each contributor, and terminates that grant
+if you initiate patent litigation over the work.
 
 Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in this work shall be licensed as above, without any
