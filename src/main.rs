@@ -15,7 +15,7 @@ fn main() -> io::Result<()> {
         fs::remove_file(sock_path)?;
     }
 
-    let capacity: u16 = std::env::var("DRM_CAPACITY")
+    let capacity: u16 = std::env::var("POMP_CAPACITY")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or_else(|| {
@@ -27,13 +27,13 @@ fn main() -> io::Result<()> {
     // Optional: ordered list of CPUs the DRM may assign to clients.
     // Format: comma-separated integers or ranges, e.g. "0,1,2-7,10-15".
     // When unset, CPU pinning is disabled (base_cpu=0, num_cpus=0 in reply).
-    let cpu_pool = std::env::var("DRM_CPU_LIST")
+    let cpu_pool = std::env::var("POMP_CPU_LIST")
         .ok()
         .map(|s| protocol::parse_cpu_list(&s))
         .unwrap_or_default();
 
     if cpu_pool.is_empty() {
-        println!("DRM_CPU_LIST not set — CPU pinning disabled");
+        println!("POMP_CPU_LIST not set — CPU pinning disabled");
     } else {
         println!(
             "CPU pool ({} cores): {}–{}",

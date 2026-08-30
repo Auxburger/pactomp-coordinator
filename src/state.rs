@@ -20,7 +20,7 @@ pub struct ClientInfo {
 #[derive(Clone, Debug)]
 pub struct RmState {
     pub clients: HashMap<u32, ClientInfo>,
-    /// The ordered CPU pool for this domain, parsed from DRM_CPU_LIST.
+    /// The ordered CPU pool for this domain, parsed from POMP_CPU_LIST.
     /// Empty when no CPU-list env var is set (disables CPU pinning).
     pub cpu_pool: Vec<u16>,
 }

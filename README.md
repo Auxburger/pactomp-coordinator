@@ -111,7 +111,7 @@ cargo build --release
 Or directly:
 
 ```bash
-DRM_CAPACITY=16 DRM_CPU_LIST=0-15 cargo run --release
+POMP_CAPACITY=16 POMP_CPU_LIST=0-15 cargo run --release
 ```
 
 The socket is unlinked at startup if it already exists, so a stale file from a
@@ -123,14 +123,14 @@ Both knobs are read once at startup from the environment.
 
 | Variable       | Default                       | Meaning |
 |----------------|-------------------------------|---------|
-| `DRM_CAPACITY` | `available_parallelism()`     | Total threads the coordinator hands out across all clients. |
-| `DRM_CPU_LIST` | unset → **pinning disabled**  | Ordered pool of CPUs available for assignment. |
+| `POMP_CAPACITY` | `available_parallelism()`     | Total threads the coordinator hands out across all clients. |
+| `POMP_CPU_LIST` | unset → **pinning disabled**  | Ordered pool of CPUs available for assignment. |
 
-`DRM_CPU_LIST` accepts comma-separated integers and inclusive ranges, e.g.
+`POMP_CPU_LIST` accepts comma-separated integers and inclusive ranges, e.g.
 `0,1,2-7,10-15`. The list is sorted and deduplicated. Unparsable entries are
 tolerated rather than rejected. Note that capacity and the pool size are
-independent — set them consistently (typically `DRM_CAPACITY` equal to the
-number of CPUs in `DRM_CPU_LIST`) or the scheduler will grant blocks the pool
+independent — set them consistently (typically `POMP_CAPACITY` equal to the
+number of CPUs in `POMP_CPU_LIST`) or the scheduler will grant blocks the pool
 cannot satisfy.
 
 Useful when the coordinator should own only part of a machine — e.g. one NUMA
@@ -141,7 +141,7 @@ node, or all cores except those reserved for the OS.
 | File | Contents |
 |------|----------|
 | [src/main.rs](src/main.rs) | Startup: env parsing, socket cleanup, wiring |
-| [src/protocol.rs](src/protocol.rs) | Frame encode/decode, `DRM_CPU_LIST` parser |
+| [src/protocol.rs](src/protocol.rs) | Frame encode/decode, `POMP_CPU_LIST` parser |
 | [src/server.rs](src/server.rs) | Unix socket accept loop, per-connection request loop |
 | [src/state.rs](src/state.rs) | Client registry, staleness eviction, CPU block allocator |
 | [src/scheduler/mod.rs](src/scheduler/mod.rs) | `Scheduler` context and `SchedulingStrategy` trait |
