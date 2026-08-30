@@ -20,8 +20,11 @@ edition 2024.
   querying the coordinator before forming a thread team and applying the
   returned thread count and CPU affinity. This is the reference implementation
   of the other end of the socket.
-- **Thesis and evaluation** — [Auxburger/master-thesis](https://github.com/Auxburger/master-thesis):
-  the write-up motivating this design, plus benchmark methodology and results.
+- **Evaluation artifacts** — [Auxburger/pactomp-benchmarks](https://github.com/Auxburger/pactomp-benchmarks):
+  the benchmark harness, retained measurement data, experiment scripts, and
+  analysis and figure-export pipeline used to evaluate the coordinator.
+- **Thesis** — [Auxburger/master-thesis](https://github.com/Auxburger/master-thesis):
+  the write-up motivating this design and interpreting the measurements.
 
 ## How it works
 
