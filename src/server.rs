@@ -85,8 +85,11 @@ fn handle_client(
         let (granted, base_cpu, num_cpus) = state.with_lock(|st| {
             st.upsert_client(&req);
             st.cleanup_stale(Duration::from_secs(5));
-            let granted = scheduler.lock().unwrap().decide(st, &req);
-            let (base_cpu, num_cpus) = st.get_or_assign_cpus(req.pid, granted);
+            let (granted, active_window) = {
+                let sched = scheduler.lock().unwrap();
+                (sched.decide(st, &req), sched.active_window())
+            };
+            let (base_cpu, num_cpus) = st.assign_cpus(req.pid, granted, active_window);
             (granted, base_cpu, num_cpus)
         });
 

@@ -61,68 +61,54 @@ impl RmState {
             .collect()
     }
 
-    /// Assign a contiguous block of `count` CPUs from `cpu_pool` to `pid`.
+    /// Assign this client's slice of `cpu_pool`, sized `count` and placed by the
+    /// client's rank among the currently active clients.
     ///
-    /// If the client already has a slot of exactly the requested count, it is
-    /// returned unchanged (stable assignment within a benchmark run).  If the
-    /// count differs the old slot is freed and a new one is searched.
+    /// The slice follows from the same active set the scheduler used for the
+    /// grant, so it can be computed without any other client acting first, and
+    /// it is stable by construction while that set and the grant are unchanged.
+    ///
+    /// The earlier first-fit search could not do that. It only ever moved the
+    /// requesting client's own slice and treated the ranges other clients held
+    /// as immovable, so a client that had requested while it was alone kept a
+    /// slice covering the whole pool. Every later client then found no free
+    /// block and ran with no interval at all until the first one happened to
+    /// request again — which a short-lived process never does.
     ///
     /// Returns `(base_cpu, num_cpus)` where `base_cpu` is the actual CPU number
     /// of the first assigned core and `num_cpus == count`.  The runtime is
     /// expected to treat CPUs as the contiguous range `[base_cpu, base_cpu + num_cpus)`.
     ///
-    /// Returns `(0, 0)` when no cpu_pool is configured or no free slot is found.
-    pub fn get_or_assign_cpus(&mut self, pid: u32, count: u16) -> (u16, u16) {
+    /// Returns `(0, 0)` when no cpu_pool is configured or the slice does not fit.
+    pub fn assign_cpus(&mut self, pid: u32, count: u16, active_window: Duration) -> (u16, u16) {
         if self.cpu_pool.is_empty() || count == 0 {
             return (0, 0);
         }
 
-        let count_usize = count as usize;
-        let pool_len = self.cpu_pool.len();
-
-        // Return existing assignment if count matches.
-        if let Some(info) = self.clients.get(&pid) {
-            if info.cpu_slot_count == count_usize
-                && info.cpu_slot_start + info.cpu_slot_count <= pool_len
-            {
-                return (self.cpu_pool[info.cpu_slot_start], count);
-            }
-        }
-
-        // Clear stale / wrong-sized assignment for this pid.
-        if let Some(info) = self.clients.get_mut(&pid) {
-            info.cpu_slot_start = 0;
-            info.cpu_slot_count = 0;
-        }
-
-        // Collect index ranges occupied by other active clients.
-        let used_ranges: Vec<(usize, usize)> = self
-            .clients
-            .iter()
-            .filter(|&(p, c)| *p != pid && c.cpu_slot_count > 0)
-            .map(|(_, c)| (c.cpu_slot_start, c.cpu_slot_start + c.cpu_slot_count))
+        // Rank by pid: an arbitrary but stable order, so a client keeps its
+        // slice across its own repeated requests.
+        let mut active: Vec<u32> = self
+            .active_clients(active_window)
+            .into_iter()
+            .map(|(p, _)| p)
             .collect();
+        if !active.contains(&pid) {
+            active.push(pid);
+        }
+        active.sort_unstable();
+        let rank = active.iter().position(|&p| p == pid).unwrap_or(0);
 
-        // First-fit: find the earliest free block of size count_usize.
-        'outer: for start in 0..pool_len {
-            if start + count_usize > pool_len {
-                break;
-            }
-            let end = start + count_usize;
-            for &(r_start, r_end) in &used_ranges {
-                if start < r_end && end > r_start {
-                    continue 'outer; // overlaps
-                }
-            }
-            // Free slot found.
-            if let Some(info) = self.clients.get_mut(&pid) {
-                info.cpu_slot_start = start;
-                info.cpu_slot_count = count_usize;
-            }
-            return (self.cpu_pool[start], count);
+        let count_usize = count as usize;
+        let start = rank * count_usize;
+        if start + count_usize > self.cpu_pool.len() {
+            return (0, 0);
         }
 
-        (0, 0) // no free slot
+        if let Some(info) = self.clients.get_mut(&pid) {
+            info.cpu_slot_start = start;
+            info.cpu_slot_count = count_usize;
+        }
+        (self.cpu_pool[start], count)
     }
 }
 
