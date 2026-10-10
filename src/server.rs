@@ -57,26 +57,38 @@ fn handle_client(
 ) -> io::Result<()> {
     println!("Handling client");
     let mut client_pid: Option<u32> = None;
+    let result = serve_client(&mut stream, &state, &scheduler, &mut client_pid);
 
+    // A client exiting with an unread reply resets the socket instead of
+    // closing it, so every way out of the loop has to count as a disconnect.
+    match client_pid {
+        Some(pid) => {
+            state.with_lock(|st| { st.clients.remove(&pid); });
+            println!("[{}] Client pid {pid} disconnected — removed from state", now_ms());
+        }
+        None => println!("Client closed connection before first request"),
+    }
+    result
+}
+
+fn serve_client(
+    stream: &mut UnixStream,
+    state: &SharedState,
+    scheduler: &Mutex<Scheduler>,
+    client_pid: &mut Option<u32>,
+) -> io::Result<()> {
     loop {
         let mut buf = [0u8; 16];
 
         if let Err(e) = stream.read_exact(&mut buf) {
-            if e.kind() == io::ErrorKind::UnexpectedEof {
-                if let Some(pid) = client_pid {
-                    state.with_lock(|st| { st.clients.remove(&pid); });
-                    println!("[{}] Client pid {pid} disconnected — removed from state", now_ms());
-                } else {
-                    println!("Client closed connection before first request");
-                }
-                return Ok(());
+            if e.kind() != io::ErrorKind::UnexpectedEof {
+                eprintln!("Read error: {e}");
             }
-            eprintln!("Read error: {e}");
             return Ok(());
         }
 
         let req = parse_request(buf);
-        client_pid = Some(req.pid);
+        *client_pid = Some(req.pid);
         println!(
             "Request from pid {}: max_threads={}, hint_threads={}",
             req.pid, req.max_threads, req.hint_threads
@@ -102,5 +114,49 @@ fn handle_client(
             "[{}] Granted {granted} threads to pid {} (CPUs {}+{})",
             now_ms(), req.pid, base_cpu, num_cpus
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::RmState;
+
+    fn request(pid: u32) -> [u8; 16] {
+        let mut buf = [0u8; 16];
+        buf[0..4].copy_from_slice(&pid.to_ne_bytes());
+        buf[4..6].copy_from_slice(&32u16.to_ne_bytes());
+        buf[6..8].copy_from_slice(&32u16.to_ne_bytes());
+        buf
+    }
+
+    fn served(client: impl FnOnce(UnixStream)) -> SharedState {
+        let state = SharedState::new(RmState::new(Vec::new()));
+        let scheduler = Arc::new(Mutex::new(Scheduler::new(32, Duration::from_secs(5))));
+        let (server_end, client_end) = UnixStream::pair().unwrap();
+        let st = state.clone();
+        let handler = thread::spawn(move || handle_client(server_end, st, scheduler));
+        client(client_end);
+        let _ = handler.join().unwrap();
+        state
+    }
+
+    #[test]
+    fn clean_close_removes_client() {
+        let state = served(|mut c| {
+            c.write_all(&request(4242)).unwrap();
+            c.read_exact(&mut [0u8; 12]).unwrap();
+        });
+        assert!(state.with_lock(|st| st.clients.is_empty()));
+    }
+
+    #[test]
+    fn close_with_unread_reply_removes_client() {
+        let state = served(|mut c| {
+            c.write_all(&request(4242)).unwrap();
+            c.read_exact(&mut [0u8; 12]).unwrap();
+            c.write_all(&request(4242)).unwrap();
+        });
+        assert!(state.with_lock(|st| st.clients.is_empty()));
     }
 }
